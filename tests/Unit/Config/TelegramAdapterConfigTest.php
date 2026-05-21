@@ -15,6 +15,7 @@ final class TelegramAdapterConfigTest extends TestCase
         putenv('FLYSYSTEM_TELEGRAM_BOT_TOKEN');
         putenv('TELEGRAM_BOT_TOKEN');
         putenv('FLYSYSTEM_TELEGRAM_CHAT_ID');
+        putenv('TELEGRAM_CHAT_ID');
     }
 
     public function testExplicitValuesWinOverEnvironment(): void
