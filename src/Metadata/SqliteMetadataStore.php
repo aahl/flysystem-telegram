@@ -28,42 +28,7 @@ final class SqliteMetadataStore implements MetadataStore
         $this->transaction(function () use ($file, $chunks): void {
             $this->pdo->prepare('DELETE FROM chunks WHERE path = :path')->execute(['path' => $file->path]);
             $this->pdo->prepare('DELETE FROM files WHERE path = :path')->execute(['path' => $file->path]);
-
-            $now = time();
-            $this->pdo->prepare('INSERT INTO files (path, type, size, mime_type, visibility, last_modified, telegram_file_id, telegram_file_unique_id, telegram_chat_id, telegram_message_id, is_chunked, chunk_size, chunk_count, created_at, updated_at) VALUES (:path, :type, :size, :mime_type, :visibility, :last_modified, :telegram_file_id, :telegram_file_unique_id, :telegram_chat_id, :telegram_message_id, :is_chunked, :chunk_size, :chunk_count, :created_at, :updated_at)')
-                ->execute([
-                    'path' => $file->path,
-                    'type' => $file->type,
-                    'size' => $file->size,
-                    'mime_type' => $file->mimeType,
-                    'visibility' => $file->visibility,
-                    'last_modified' => $file->lastModified,
-                    'telegram_file_id' => $file->telegramFileId,
-                    'telegram_file_unique_id' => $file->telegramFileUniqueId,
-                    'telegram_chat_id' => $file->telegramChatId,
-                    'telegram_message_id' => $file->telegramMessageId,
-                    'is_chunked' => $file->isChunked ? 1 : 0,
-                    'chunk_size' => $file->chunkSize,
-                    'chunk_count' => $file->chunkCount,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-
-            foreach ($chunks as $chunk) {
-                $this->pdo->prepare('INSERT INTO chunks (path, chunk_index, type, size, telegram_file_id, telegram_file_unique_id, telegram_chat_id, telegram_message_id, created_at, updated_at) VALUES (:path, :chunk_index, :type, :size, :telegram_file_id, :telegram_file_unique_id, :telegram_chat_id, :telegram_message_id, :created_at, :updated_at)')
-                    ->execute([
-                        'path' => $chunk->path,
-                        'chunk_index' => $chunk->index,
-                        'type' => $chunk->type,
-                        'size' => $chunk->size,
-                        'telegram_file_id' => $chunk->telegramFileId,
-                        'telegram_file_unique_id' => $chunk->telegramFileUniqueId,
-                        'telegram_chat_id' => $chunk->telegramChatId,
-                        'telegram_message_id' => $chunk->telegramMessageId,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-            }
+            $this->insertFile($file, $chunks, time());
         });
     }
 
@@ -113,22 +78,119 @@ final class SqliteMetadataStore implements MetadataStore
 
     public function listContents(string $path, bool $deep): iterable
     {
-        return [];
+        try {
+            $prefix = trim($path, '/');
+            $like = $prefix === '' ? '%' : $prefix . '/%';
+            $statement = $this->pdo->prepare('SELECT * FROM files WHERE path LIKE :prefix ORDER BY path ASC');
+            $statement->execute(['prefix' => $like]);
+
+            $directories = [];
+
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $file = $this->hydrateFile($row);
+                $relative = $prefix === '' ? $file->path : substr($file->path, strlen($prefix) + 1);
+
+                if ($relative === false || $relative === '') {
+                    continue;
+                }
+
+                $slashPosition = strpos($relative, '/');
+
+                if ($slashPosition === false) {
+                    yield $file;
+                    continue;
+                }
+
+                $directoryPath = ($prefix === '' ? '' : $prefix . '/') . substr($relative, 0, $slashPosition);
+
+                if (!isset($directories[$directoryPath])) {
+                    $directories[$directoryPath] = true;
+                    yield new DirectoryMetadata($directoryPath);
+                }
+
+                if ($deep) {
+                    yield $file;
+                }
+            }
+        } catch (PDOException $exception) {
+            throw new MetadataStoreException('Unable to list metadata.', 0, $exception);
+        }
     }
 
     public function move(string $source, string $destination): void
     {
-        throw new MetadataStoreException('Move is not implemented yet.');
+        $this->transaction(function () use ($source, $destination): void {
+            $statement = $this->pdo->prepare('UPDATE files SET path = :destination, updated_at = :updated_at WHERE path = :source');
+            $statement->execute([
+                'destination' => $destination,
+                'source' => $source,
+                'updated_at' => time(),
+            ]);
+
+            if ($statement->rowCount() !== 1) {
+                throw new MetadataStoreException(sprintf('Source path "%s" does not exist.', $source));
+            }
+        });
     }
 
     public function copy(string $source, string $destination): void
     {
-        throw new MetadataStoreException('Copy is not implemented yet.');
+        $this->transaction(function () use ($source, $destination): void {
+            $stored = $this->read($source);
+
+            if ($stored === null) {
+                throw new MetadataStoreException(sprintf('Source path "%s" does not exist.', $source));
+            }
+
+            $now = time();
+            $file = new FileMetadata(
+                $destination,
+                $stored->metadata->type,
+                $stored->metadata->size,
+                $stored->metadata->mimeType,
+                $stored->metadata->visibility,
+                $now,
+                $stored->metadata->telegramFileId,
+                $stored->metadata->telegramFileUniqueId,
+                $stored->metadata->telegramChatId,
+                $stored->metadata->telegramMessageId,
+                $stored->metadata->isChunked,
+                $stored->metadata->chunkSize,
+                $stored->metadata->chunkCount,
+            );
+
+            $chunks = array_map(
+                static fn (ChunkMetadata $chunk): ChunkMetadata => new ChunkMetadata(
+                    $destination,
+                    $chunk->index,
+                    $chunk->type,
+                    $chunk->size,
+                    $chunk->telegramFileId,
+                    $chunk->telegramFileUniqueId,
+                    $chunk->telegramChatId,
+                    $chunk->telegramMessageId,
+                ),
+                $stored->chunks,
+            );
+
+            $this->insertFile($file, $chunks, $now);
+        });
     }
 
     public function setVisibility(string $path, string $visibility): void
     {
-        throw new MetadataStoreException('Set visibility is not implemented yet.');
+        $this->transaction(function () use ($path, $visibility): void {
+            $statement = $this->pdo->prepare('UPDATE files SET visibility = :visibility, updated_at = :updated_at WHERE path = :path');
+            $statement->execute([
+                'path' => $path,
+                'visibility' => $visibility,
+                'updated_at' => time(),
+            ]);
+
+            if ($statement->rowCount() !== 1) {
+                throw new MetadataStoreException(sprintf('Path "%s" does not exist.', $path));
+            }
+        });
     }
 
     private function initialize(): void
@@ -141,6 +203,47 @@ final class SqliteMetadataStore implements MetadataStore
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS files_path_prefix_idx ON files(path)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS chunks_path_idx ON chunks(path)');
+    }
+
+    /**
+     * @param list<ChunkMetadata> $chunks
+     */
+    private function insertFile(FileMetadata $file, array $chunks, int $now): void
+    {
+        $this->pdo->prepare('INSERT INTO files (path, type, size, mime_type, visibility, last_modified, telegram_file_id, telegram_file_unique_id, telegram_chat_id, telegram_message_id, is_chunked, chunk_size, chunk_count, created_at, updated_at) VALUES (:path, :type, :size, :mime_type, :visibility, :last_modified, :telegram_file_id, :telegram_file_unique_id, :telegram_chat_id, :telegram_message_id, :is_chunked, :chunk_size, :chunk_count, :created_at, :updated_at)')
+            ->execute([
+                'path' => $file->path,
+                'type' => $file->type,
+                'size' => $file->size,
+                'mime_type' => $file->mimeType,
+                'visibility' => $file->visibility,
+                'last_modified' => $file->lastModified,
+                'telegram_file_id' => $file->telegramFileId,
+                'telegram_file_unique_id' => $file->telegramFileUniqueId,
+                'telegram_chat_id' => $file->telegramChatId,
+                'telegram_message_id' => $file->telegramMessageId,
+                'is_chunked' => $file->isChunked ? 1 : 0,
+                'chunk_size' => $file->chunkSize,
+                'chunk_count' => $file->chunkCount,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+        foreach ($chunks as $chunk) {
+            $this->pdo->prepare('INSERT INTO chunks (path, chunk_index, type, size, telegram_file_id, telegram_file_unique_id, telegram_chat_id, telegram_message_id, created_at, updated_at) VALUES (:path, :chunk_index, :type, :size, :telegram_file_id, :telegram_file_unique_id, :telegram_chat_id, :telegram_message_id, :created_at, :updated_at)')
+                ->execute([
+                    'path' => $chunk->path,
+                    'chunk_index' => $chunk->index,
+                    'type' => $chunk->type,
+                    'size' => $chunk->size,
+                    'telegram_file_id' => $chunk->telegramFileId,
+                    'telegram_file_unique_id' => $chunk->telegramFileUniqueId,
+                    'telegram_chat_id' => $chunk->telegramChatId,
+                    'telegram_message_id' => $chunk->telegramMessageId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
     }
 
     private function transaction(callable $callback): void

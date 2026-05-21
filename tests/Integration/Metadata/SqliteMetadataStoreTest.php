@@ -117,4 +117,77 @@ final class SqliteMetadataStoreTest extends TestCase
 
         self::assertTrue(true);
     }
+
+    public function testMoveUpdatesPathAndCascadesChunks(): void
+    {
+        $this->store->write(
+            new FileMetadata('from/big.bin', TelegramType::DOCUMENT, 4, null, null, 100, null, null, '-100', null, true, 4, 1),
+            [new ChunkMetadata('from/big.bin', 0, TelegramType::DOCUMENT, 4, 'chunk', null, '-100', 10)],
+        );
+
+        $this->store->move('from/big.bin', 'to/big.bin');
+
+        self::assertNull($this->store->read('from/big.bin'));
+        $stored = $this->store->read('to/big.bin');
+        self::assertNotNull($stored);
+        self::assertSame('to/big.bin', $stored->chunks[0]->path);
+    }
+
+    public function testCopyDuplicatesMetadataAndReusesTelegramIds(): void
+    {
+        $this->store->write(
+            new FileMetadata('source.bin', TelegramType::DOCUMENT, 4, null, null, 100, null, null, '-100', null, true, 4, 1),
+            [new ChunkMetadata('source.bin', 0, TelegramType::DOCUMENT, 4, 'chunk', null, '-100', 10)],
+        );
+
+        $this->store->copy('source.bin', 'copy.bin');
+
+        $source = $this->store->read('source.bin');
+        $copy = $this->store->read('copy.bin');
+
+        self::assertNotNull($source);
+        self::assertNotNull($copy);
+        self::assertSame('source.bin', $source->metadata->path);
+        self::assertSame('copy.bin', $copy->metadata->path);
+        self::assertSame('chunk', $copy->chunks[0]->telegramFileId);
+        self::assertGreaterThanOrEqual($source->metadata->lastModified, $copy->metadata->lastModified);
+    }
+
+    public function testSetVisibilityUpdatesExistingFile(): void
+    {
+        $this->store->write(new FileMetadata('visible.txt', TelegramType::DOCUMENT, 5, null, Visibility::PRIVATE, 100, 'file', null, '-100', 10));
+
+        $this->store->setVisibility('visible.txt', Visibility::PUBLIC);
+
+        self::assertSame(Visibility::PUBLIC, $this->store->read('visible.txt')?->metadata->visibility);
+    }
+
+    public function testListContentsShallowReturnsFilesAndVirtualDirectories(): void
+    {
+        $this->store->write(new FileMetadata('foo/a.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'a', null, '-100', 1));
+        $this->store->write(new FileMetadata('foo/bar/b.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'b', null, '-100', 2));
+        $this->store->write(new FileMetadata('foo/bar/c.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'c', null, '-100', 3));
+        $this->store->write(new FileMetadata('foo/readme.md', TelegramType::DOCUMENT, 1, null, null, 100, 'r', null, '-100', 4));
+
+        $items = iterator_to_array($this->store->listContents('foo', false));
+        $paths = array_map(static fn (object $item): string => $item->path, $items);
+
+        sort($paths);
+
+        self::assertSame(['foo/a.txt', 'foo/bar', 'foo/readme.md'], $paths);
+    }
+
+    public function testListContentsDeepReturnsFilesAndVirtualDirectories(): void
+    {
+        $this->store->write(new FileMetadata('foo/a.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'a', null, '-100', 1));
+        $this->store->write(new FileMetadata('foo/bar/b.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'b', null, '-100', 2));
+        $this->store->write(new FileMetadata('foo/bar/c.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'c', null, '-100', 3));
+
+        $items = iterator_to_array($this->store->listContents('foo', true));
+        $paths = array_map(static fn (object $item): string => $item->path, $items);
+
+        sort($paths);
+
+        self::assertSame(['foo/a.txt', 'foo/bar', 'foo/bar/b.txt', 'foo/bar/c.txt'], $paths);
+    }
 }
