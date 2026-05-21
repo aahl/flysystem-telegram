@@ -90,7 +90,7 @@ final class SqliteMetadataStore implements MetadataStore
                 $file = $this->hydrateFile($row);
                 $relative = $prefix === '' ? $file->path : substr($file->path, strlen($prefix) + 1);
 
-                if ($relative === false || $relative === '') {
+                if ($relative === '') {
                     continue;
                 }
 

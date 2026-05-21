@@ -313,7 +313,7 @@ final class TelegramAdapter implements FilesystemAdapter
 
         $stats = fstat($stream);
 
-        if (is_array($stats) && isset($stats['size'])) {
+        if (is_array($stats)) {
             return (int) $stats['size'];
         }
 
