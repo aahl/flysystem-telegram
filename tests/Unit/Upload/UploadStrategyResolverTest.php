@@ -27,6 +27,13 @@ final class UploadStrategyResolverTest extends TestCase
         self::assertFalse($strategy->chunked);
     }
 
+    public function testConfiguredMimeTypeWinsOverGifExtension(): void
+    {
+        $strategy = $this->resolver->resolve('clip.gif', 'video/mp4', 1024, new TelegramAdapterConfig(botToken: 'token', chatId: 'chat'));
+
+        self::assertSame(TelegramType::VIDEO, $strategy->type);
+    }
+
     public function testGifResolvesToAnimationBeforePhoto(): void
     {
         $strategy = $this->resolver->resolve('clip.gif', null, 1024, new TelegramAdapterConfig(botToken: 'token', chatId: 'chat'));

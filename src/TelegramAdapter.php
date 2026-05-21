@@ -22,8 +22,12 @@ use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemAdapter;
+use League\Flysystem\UnableToCheckDirectoryExistence;
+use League\Flysystem\UnableToCheckFileExistence;
 use League\Flysystem\UnableToCopyFile;
+use League\Flysystem\UnableToDeleteDirectory;
 use League\Flysystem\UnableToDeleteFile;
+use League\Flysystem\UnableToListContents;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
@@ -53,16 +57,24 @@ final class TelegramAdapter implements FilesystemAdapter
 
     public function fileExists(string $path): bool
     {
-        return $this->metadataStore->fileExists($path);
+        try {
+            return $this->metadataStore->fileExists($path);
+        } catch (Throwable $exception) {
+            throw UnableToCheckFileExistence::forLocation($path, $exception);
+        }
     }
 
     public function directoryExists(string $path): bool
     {
-        foreach ($this->metadataStore->listContents($path, true) as $item) {
-            return true;
-        }
+        try {
+            foreach ($this->metadataStore->listContents($path, true) as $item) {
+                return true;
+            }
 
-        return false;
+            return false;
+        } catch (Throwable $exception) {
+            throw UnableToCheckDirectoryExistence::forLocation($path, $exception);
+        }
     }
 
     public function write(string $path, string $contents, Config $config): void
@@ -175,10 +187,14 @@ final class TelegramAdapter implements FilesystemAdapter
 
     public function deleteDirectory(string $path): void
     {
-        foreach ($this->metadataStore->listContents($path, true) as $item) {
-            if ($item instanceof FileMetadata) {
-                $this->delete($item->path);
+        try {
+            foreach ($this->metadataStore->listContents($path, true) as $item) {
+                if ($item instanceof FileMetadata) {
+                    $this->metadataStore->delete($item->path);
+                }
             }
+        } catch (Throwable $exception) {
+            throw UnableToDeleteDirectory::atLocation($path, $exception->getMessage(), $exception);
         }
     }
 
@@ -225,13 +241,17 @@ final class TelegramAdapter implements FilesystemAdapter
 
     public function listContents(string $path, bool $deep): iterable
     {
-        foreach ($this->metadataStore->listContents($path, $deep) as $item) {
-            if ($item instanceof DirectoryMetadata) {
-                yield new DirectoryAttributes($item->path);
-                continue;
-            }
+        try {
+            foreach ($this->metadataStore->listContents($path, $deep) as $item) {
+                if ($item instanceof DirectoryMetadata) {
+                    yield new DirectoryAttributes($item->path);
+                    continue;
+                }
 
-            yield new FileAttributes($item->path, $item->size, $item->visibility, $item->lastModified, $item->mimeType);
+                yield new FileAttributes($item->path, $item->size, $item->visibility, $item->lastModified, $item->mimeType);
+            }
+        } catch (Throwable $exception) {
+            throw UnableToListContents::atLocation($path, $deep, $exception);
         }
     }
 

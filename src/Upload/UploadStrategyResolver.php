@@ -78,7 +78,7 @@ final class UploadStrategyResolver
     {
         $resolvedMimeType = $this->resolveMimeType($path, $mimeType);
 
-        if ($resolvedMimeType === 'image/gif' || strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'gif') {
+        if ($resolvedMimeType === 'image/gif') {
             return TelegramType::ANIMATION;
         }
 

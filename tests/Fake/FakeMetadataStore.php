@@ -16,6 +16,9 @@ final class FakeMetadataStore implements MetadataStore
     public array $files = [];
 
     public bool $failWrites = false;
+    public bool $failDeletes = false;
+    public bool $failFileExists = false;
+    public bool $failListContents = false;
 
     /**
      * @param list<ChunkMetadata> $chunks
@@ -36,16 +39,28 @@ final class FakeMetadataStore implements MetadataStore
 
     public function delete(string $path): void
     {
+        if ($this->failDeletes) {
+            throw new RuntimeException('metadata delete failed');
+        }
+
         unset($this->files[$path]);
     }
 
     public function fileExists(string $path): bool
     {
+        if ($this->failFileExists) {
+            throw new RuntimeException('metadata exists failed');
+        }
+
         return isset($this->files[$path]);
     }
 
     public function listContents(string $path, bool $deep): iterable
     {
+        if ($this->failListContents) {
+            throw new RuntimeException('metadata list failed');
+        }
+
         foreach ($this->files as $storedFile) {
             yield $storedFile->metadata;
         }

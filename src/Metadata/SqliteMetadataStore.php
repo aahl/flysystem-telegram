@@ -94,18 +94,23 @@ final class SqliteMetadataStore implements MetadataStore
                     continue;
                 }
 
-                $slashPosition = strpos($relative, '/');
+                $segments = explode('/', $relative);
 
-                if ($slashPosition === false) {
+                if (count($segments) === 1) {
                     yield $file;
                     continue;
                 }
 
-                $directoryPath = ($prefix === '' ? '' : $prefix . '/') . substr($relative, 0, $slashPosition);
+                $directoryPath = $prefix === '' ? '' : $prefix;
+                $lastDirectoryIndex = $deep ? count($segments) - 2 : 0;
 
-                if (!isset($directories[$directoryPath])) {
-                    $directories[$directoryPath] = true;
-                    yield new DirectoryMetadata($directoryPath);
+                for ($index = 0; $index <= $lastDirectoryIndex; $index++) {
+                    $directoryPath = $directoryPath === '' ? $segments[$index] : $directoryPath . '/' . $segments[$index];
+
+                    if (!isset($directories[$directoryPath])) {
+                        $directories[$directoryPath] = true;
+                        yield new DirectoryMetadata($directoryPath);
+                    }
                 }
 
                 if ($deep) {

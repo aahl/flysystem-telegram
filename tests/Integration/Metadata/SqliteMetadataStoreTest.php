@@ -181,13 +181,13 @@ final class SqliteMetadataStoreTest extends TestCase
     {
         $this->store->write(new FileMetadata('foo/a.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'a', null, '-100', 1));
         $this->store->write(new FileMetadata('foo/bar/b.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'b', null, '-100', 2));
-        $this->store->write(new FileMetadata('foo/bar/c.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'c', null, '-100', 3));
+        $this->store->write(new FileMetadata('foo/bar/baz/c.txt', TelegramType::DOCUMENT, 1, null, null, 100, 'c', null, '-100', 3));
 
         $items = iterator_to_array($this->store->listContents('foo', true));
         $paths = array_map(static fn (object $item): string => $item->path, $items);
 
         sort($paths);
 
-        self::assertSame(['foo/a.txt', 'foo/bar', 'foo/bar/b.txt', 'foo/bar/c.txt'], $paths);
+        self::assertSame(['foo/a.txt', 'foo/bar', 'foo/bar/b.txt', 'foo/bar/baz', 'foo/bar/baz/c.txt'], $paths);
     }
 }

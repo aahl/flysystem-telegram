@@ -11,6 +11,10 @@ use Aahl\FlysystemTelegram\TelegramAdapter;
 use Aahl\FlysystemTelegram\Tests\Fake\FakeMetadataStore;
 use Aahl\FlysystemTelegram\Tests\Fake\FakeTelegramClient;
 use League\Flysystem\Config;
+use League\Flysystem\UnableToCheckDirectoryExistence;
+use League\Flysystem\UnableToCheckFileExistence;
+use League\Flysystem\UnableToDeleteDirectory;
+use League\Flysystem\UnableToListContents;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\Visibility;
 use PHPUnit\Framework\TestCase;
@@ -144,6 +148,51 @@ final class TelegramAdapterTest extends TestCase
         $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), new FakeTelegramClient(), new FakeMetadataStore());
 
         $adapter->read('missing.txt');
+    }
+
+    public function testFileExistsWrapsMetadataFailure(): void
+    {
+        $metadataStore = new FakeMetadataStore();
+        $metadataStore->failFileExists = true;
+        $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), new FakeTelegramClient(), $metadataStore);
+
+        $this->expectException(UnableToCheckFileExistence::class);
+
+        $adapter->fileExists('docs/a.txt');
+    }
+
+    public function testDirectoryExistsWrapsMetadataFailure(): void
+    {
+        $metadataStore = new FakeMetadataStore();
+        $metadataStore->failListContents = true;
+        $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), new FakeTelegramClient(), $metadataStore);
+
+        $this->expectException(UnableToCheckDirectoryExistence::class);
+
+        $adapter->directoryExists('docs');
+    }
+
+    public function testListContentsWrapsMetadataFailure(): void
+    {
+        $metadataStore = new FakeMetadataStore();
+        $metadataStore->failListContents = true;
+        $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), new FakeTelegramClient(), $metadataStore);
+
+        $this->expectException(UnableToListContents::class);
+
+        iterator_to_array($adapter->listContents('docs', true));
+    }
+
+    public function testDeleteDirectoryWrapsMetadataFailure(): void
+    {
+        $metadataStore = new FakeMetadataStore();
+        $metadataStore->write(new FileMetadata('docs/a.txt', TelegramType::DOCUMENT, 5, null, null, 100, 'file-id', null, '-100', 1));
+        $metadataStore->failDeletes = true;
+        $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), new FakeTelegramClient(), $metadataStore);
+
+        $this->expectException(UnableToDeleteDirectory::class);
+
+        $adapter->deleteDirectory('docs');
     }
 
     public function testDeleteRemovesMetadataOnly(): void
