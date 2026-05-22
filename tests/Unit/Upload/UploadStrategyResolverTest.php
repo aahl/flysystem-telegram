@@ -86,6 +86,24 @@ final class UploadStrategyResolverTest extends TestCase
         self::assertSame(900, $strategy->chunkSize);
     }
 
+    public function testDefaultDocumentLimitUsesDownloadSafeChunking(): void
+    {
+        $strategy = $this->resolver->resolve('big.bin', null, 21 * 1024 * 1024, new TelegramAdapterConfig(botToken: 'token', chatId: 'chat'));
+
+        self::assertSame(TelegramType::DOCUMENT, $strategy->type);
+        self::assertTrue($strategy->chunked);
+        self::assertSame(20 * 1024 * 1024, $strategy->chunkSize);
+    }
+
+    public function testDefaultTypedLimitFallsBackToChunkedDocumentAboveDownloadLimit(): void
+    {
+        $strategy = $this->resolver->resolve('video.mp4', 'video/mp4', 21 * 1024 * 1024, new TelegramAdapterConfig(botToken: 'token', chatId: 'chat'));
+
+        self::assertSame(TelegramType::DOCUMENT, $strategy->type);
+        self::assertTrue($strategy->chunked);
+        self::assertSame(20 * 1024 * 1024, $strategy->chunkSize);
+    }
+
     public function testChunkSizeIsClampedToDocumentLimit(): void
     {
         $config = new TelegramAdapterConfig(

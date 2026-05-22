@@ -29,7 +29,6 @@ final class GuzzleTelegramClient implements TelegramClientInterface
         private readonly string $botToken,
         ?ClientInterface $httpClient = null,
         private readonly string $apiBaseUri = 'https://api.telegram.org',
-        private readonly string $fileBaseUri = 'https://api.telegram.org/file',
         private readonly float $timeout = 30.0,
     ) {
         $this->httpClient = $httpClient ?? new Client();
@@ -162,6 +161,6 @@ final class GuzzleTelegramClient implements TelegramClientInterface
 
     private function fileUrl(string $filePath): string
     {
-        return rtrim($this->fileBaseUri, '/') . '/bot' . $this->botToken . '/' . ltrim($filePath, '/');
+        return rtrim($this->apiBaseUri, '/') . '/file/bot' . $this->botToken . '/' . ltrim($filePath, '/');
     }
 }

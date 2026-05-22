@@ -455,10 +455,10 @@ final class TelegramType
 
     public const DEFAULT_SIZE_LIMITS = [
         self::PHOTO => 10 * 1024 * 1024,
-        self::VIDEO => 50 * 1024 * 1024,
-        self::AUDIO => 50 * 1024 * 1024,
-        self::ANIMATION => 50 * 1024 * 1024,
-        self::DOCUMENT => 50 * 1024 * 1024,
+        self::VIDEO => 20 * 1024 * 1024,
+        self::AUDIO => 20 * 1024 * 1024,
+        self::ANIMATION => 20 * 1024 * 1024,
+        self::DOCUMENT => 20 * 1024 * 1024,
     ];
 
     public static function assertValid(string $type): void
@@ -496,12 +496,11 @@ final class TelegramAdapterConfig
         public readonly string $defaultVisibility = Visibility::PRIVATE,
         public readonly bool $enableChunking = true,
         public readonly int $maxFileSize = 50 * 1024 * 1024,
-        public readonly int $chunkSize = 49 * 1024 * 1024,
+        public readonly int $chunkSize = 20 * 1024 * 1024,
         public readonly string $chunkStreamProtocol = 'flysystem-telegram',
         public readonly UploadTypeStrategy $uploadTypeStrategy = UploadTypeStrategy::Auto,
         public readonly array $typeSizeLimits = [],
         public readonly string $apiBaseUri = 'https://api.telegram.org',
-        public readonly string $fileBaseUri = 'https://api.telegram.org/file',
         public readonly float $timeout = 30.0,
     ) {
     }
@@ -2274,7 +2273,6 @@ final class GuzzleTelegramClient implements TelegramClientInterface
         private readonly string $botToken,
         ?ClientInterface $httpClient = null,
         private readonly string $apiBaseUri = 'https://api.telegram.org',
-        private readonly string $fileBaseUri = 'https://api.telegram.org/file',
         private readonly float $timeout = 30.0,
     ) {
         $this->httpClient = $httpClient ?? new Client();
@@ -2407,7 +2405,7 @@ final class GuzzleTelegramClient implements TelegramClientInterface
 
     private function fileUrl(string $filePath): string
     {
-        return rtrim($this->fileBaseUri, '/') . '/bot' . $this->botToken . '/' . ltrim($filePath, '/');
+        return rtrim($this->apiBaseUri, '/') . '/file/bot' . $this->botToken . '/' . ltrim($filePath, '/');
     }
 }
 ```
@@ -3336,7 +3334,7 @@ final class TelegramAdapter implements FilesystemAdapter
         ?ChunkManager $chunkManager = null,
         ?UploadStrategyResolver $uploadStrategyResolver = null,
     ) {
-        $this->telegramClient = $telegramClient ?? new GuzzleTelegramClient($config->resolveBotToken(), null, $config->apiBaseUri, $config->fileBaseUri, $config->timeout);
+        $this->telegramClient = $telegramClient ?? new GuzzleTelegramClient($config->resolveBotToken(), null, $config->apiBaseUri, $config->timeout);
         $this->metadataStore = $metadataStore ?? new SqliteMetadataStore($config->resolveDatabasePath());
         $this->chunkManager = $chunkManager ?? new ChunkManager($config->maxFileSize, $config->chunkSize);
         $this->uploadStrategyResolver = $uploadStrategyResolver ?? new UploadStrategyResolver();

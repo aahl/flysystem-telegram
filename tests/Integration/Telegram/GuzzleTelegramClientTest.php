@@ -114,7 +114,6 @@ final class GuzzleTelegramClientTest extends TestCase
             'TOKEN',
             new Client(['handler' => $stack]),
             'https://api.telegram.org',
-            'https://api.telegram.org/file',
             30.0,
         );
     }

@@ -49,7 +49,7 @@ final class TelegramAdapter implements FilesystemAdapter
         ?ChunkManager $chunkManager = null,
         ?UploadStrategyResolver $uploadStrategyResolver = null,
     ) {
-        $this->telegramClient = $telegramClient ?? new GuzzleTelegramClient($config->resolveBotToken(), null, $config->apiBaseUri, $config->fileBaseUri, $config->timeout);
+        $this->telegramClient = $telegramClient ?? new GuzzleTelegramClient($config->resolveBotToken(), null, $config->apiBaseUri, $config->timeout);
         $this->metadataStore = $metadataStore ?? new SqliteMetadataStore($config->resolveDatabasePath());
         $this->chunkManager = $chunkManager ?? new ChunkManager($config->maxFileSize, $config->chunkSize);
         $this->uploadStrategyResolver = $uploadStrategyResolver ?? new UploadStrategyResolver();

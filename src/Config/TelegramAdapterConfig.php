@@ -19,12 +19,11 @@ final class TelegramAdapterConfig
         public readonly string $defaultVisibility = Visibility::PRIVATE,
         public readonly bool $enableChunking = true,
         public readonly int $maxFileSize = 50 * 1024 * 1024,
-        public readonly int $chunkSize = 49 * 1024 * 1024,
+        public readonly int $chunkSize = 20 * 1024 * 1024,
         public readonly string $chunkStreamProtocol = 'flysystem-telegram',
         public readonly UploadTypeStrategy $uploadTypeStrategy = UploadTypeStrategy::Auto,
         public readonly array $typeSizeLimits = [],
         public readonly string $apiBaseUri = 'https://api.telegram.org',
-        public readonly string $fileBaseUri = 'https://api.telegram.org/file',
         public readonly float $timeout = 30.0,
     ) {
     }

@@ -14,10 +14,10 @@ final class TelegramType
 
     public const DEFAULT_SIZE_LIMITS = [
         self::PHOTO => 10 * 1024 * 1024,
-        self::VIDEO => 50 * 1024 * 1024,
-        self::AUDIO => 50 * 1024 * 1024,
-        self::ANIMATION => 50 * 1024 * 1024,
-        self::DOCUMENT => 50 * 1024 * 1024,
+        self::VIDEO => 20 * 1024 * 1024,
+        self::AUDIO => 20 * 1024 * 1024,
+        self::ANIMATION => 20 * 1024 * 1024,
+        self::DOCUMENT => 20 * 1024 * 1024,
     ];
 
     public static function assertValid(string $type): void

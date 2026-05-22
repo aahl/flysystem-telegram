@@ -60,12 +60,11 @@ final class TelegramAdapterConfig
         public readonly string $defaultVisibility = Visibility::PRIVATE,
         public readonly bool $enableChunking = true,
         public readonly int $maxFileSize = 50 * 1024 * 1024,
-        public readonly int $chunkSize = 49 * 1024 * 1024,
+        public readonly int $chunkSize = 20 * 1024 * 1024,
         public readonly string $chunkStreamProtocol = 'flysystem-telegram',
         public readonly UploadTypeStrategy $uploadTypeStrategy = UploadTypeStrategy::Auto,
         public readonly array $typeSizeLimits = [],
         public readonly string $apiBaseUri = 'https://api.telegram.org',
-        public readonly string $fileBaseUri = 'https://api.telegram.org/file',
         public readonly float $timeout = 30.0,
     ) {}
 }
@@ -115,7 +114,7 @@ $adapter = new TelegramAdapter(
 );
 ```
 
-If `telegramClient` is omitted, the adapter creates `GuzzleTelegramClient` using `botToken`, `apiBaseUri`, `fileBaseUri`, and `timeout`.
+If `telegramClient` is omitted, the adapter creates `GuzzleTelegramClient` using `botToken`, `apiBaseUri`, and `timeout`. File download URLs are derived from `apiBaseUri`.
 
 If `metadataStore` is omitted, the adapter creates `SqliteMetadataStore` using `databasePath`.
 
@@ -490,19 +489,19 @@ No `finfo` content detection in the first version.
 
 Single-write `type` override is not supported. Type behavior is controlled globally through `uploadTypeStrategy`.
 
-Default conservative size limits:
+Default conservative size limits are capped at the hosted Bot API download-safe limit:
 
 ```php
 [
     'photo' => 10 * 1024 * 1024,
-    'video' => 50 * 1024 * 1024,
-    'audio' => 50 * 1024 * 1024,
-    'animation' => 50 * 1024 * 1024,
-    'document' => 50 * 1024 * 1024,
+    'video' => 20 * 1024 * 1024,
+    'audio' => 20 * 1024 * 1024,
+    'animation' => 20 * 1024 * 1024,
+    'document' => 20 * 1024 * 1024,
 ]
 ```
 
-Users may override limits globally with `typeSizeLimits`.
+The hosted Bot API accepts larger non-photo uploads, but `getFile` downloads are limited to 20 MB. Users may override limits globally with `typeSizeLimits` when using a local Bot API server.
 
 Resolution flow:
 
