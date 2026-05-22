@@ -90,7 +90,9 @@ final class TelegramAdapter implements FilesystemAdapter
             rewind($stream);
             $this->writeStream($path, $stream, $config);
         } finally {
-            fclose($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 

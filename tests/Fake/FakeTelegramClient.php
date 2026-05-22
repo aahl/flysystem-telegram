@@ -28,9 +28,15 @@ final class FakeTelegramClient implements TelegramClientInterface
     /** @var list<string> */
     public array $uploadedTypes = [];
 
+    public bool $closeUploadedStreams = false;
+
     public function upload(TelegramUploadRequest $request): TelegramUploadedFile
     {
         $this->uploadedTypes[] = $request->type;
+
+        if ($this->closeUploadedStreams && is_resource($request->contents)) {
+            fclose($request->contents);
+        }
 
         if (($this->uploadFailures[0] ?? null) === $request->type) {
             array_shift($this->uploadFailures);

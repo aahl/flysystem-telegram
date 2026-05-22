@@ -52,6 +52,18 @@ final class TelegramAdapterTest extends TestCase
         }
     }
 
+    public function testWriteDoesNotFailWhenTelegramClientClosesUploadStream(): void
+    {
+        $metadataStore = new FakeMetadataStore();
+        $telegramClient = new FakeTelegramClient();
+        $telegramClient->closeUploadedStreams = true;
+        $adapter = new TelegramAdapter(new TelegramAdapterConfig(botToken: 'token', chatId: '-100'), $telegramClient, $metadataStore);
+
+        $adapter->write('docs/a.txt', 'hello', new Config(['mime_type' => 'text/plain']));
+
+        self::assertTrue($metadataStore->fileExists('docs/a.txt'));
+    }
+
     public function testReadDownloadsStoredFile(): void
     {
         $metadataStore = new FakeMetadataStore();
