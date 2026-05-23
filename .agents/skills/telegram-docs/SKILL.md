@@ -8,7 +8,7 @@ allowed-tools: Read Grep Glob Search WebFetch
 
 ## Ask context7
 ```bash
-npx -y ctx7 docs /websites/core_telegram_api "How to ..."
+npx -y ctx7 docs /websites/core_telegram "How to ..."
 ```
 
 ## Ask deepwiki
