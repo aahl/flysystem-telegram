@@ -6,15 +6,24 @@ namespace Aahl\FlysystemTelegram\Tests\Integration\Metadata;
 
 use Aahl\FlysystemTelegram\Metadata\ChunkMetadata;
 use Aahl\FlysystemTelegram\Metadata\FileMetadata;
+use Aahl\FlysystemTelegram\Metadata\MetadataStore;
 use Aahl\FlysystemTelegram\Metadata\SqliteMetadataStore;
 use Aahl\FlysystemTelegram\Telegram\TelegramType;
+use Aahl\FlysystemTelegram\Tests\Contract\MetadataStoreContractTestTrait;
 use League\Flysystem\Visibility;
 use PHPUnit\Framework\TestCase;
 
 final class SqliteMetadataStoreTest extends TestCase
 {
+    use MetadataStoreContractTestTrait;
+
     private string $databasePath;
     private SqliteMetadataStore $store;
+
+    protected function metadataStore(): MetadataStore
+    {
+        return $this->store;
+    }
 
     protected function setUp(): void
     {

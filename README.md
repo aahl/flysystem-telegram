@@ -14,7 +14,9 @@ composer require aahl/flysystem-telegram
 
 - PHP 8.1+
 - `ext-pdo`
-- `ext-pdo_sqlite`
+- One metadata driver extension:
+  - `ext-pdo_sqlite` for the default SQLite metadata store
+  - `ext-pdo_mysql` for `MysqlMetadataStore`
 - A Telegram Bot token
 - A Telegram chat id where the bot can send messages
 
@@ -55,7 +57,7 @@ The bot token also supports the generic environment variable:
 export TELEGRAM_BOT_TOKEN="123456:telegram-bot-token"
 ```
 
-`databasePath` is not read from environment variables. If omitted, it defaults to `.flysystem-telegram.sqlite` in the current working directory.
+`databasePath` is only used by the default SQLite metadata store. It is not read from environment variables. If omitted, it defaults to `.flysystem-telegram.sqlite` in the current working directory.
 
 ```php
 $adapter = new TelegramAdapter(new TelegramAdapterConfig());
@@ -145,13 +147,77 @@ If your process already has a stream wrapper with the same name, configure a dif
 
 ## MetadataStore
 
-SQLite is used by default:
+SQLite is used by default and requires `ext-pdo_sqlite`:
 
 ```php
 use Aahl\FlysystemTelegram\Metadata\SqliteMetadataStore;
 
 $metadataStore = new SqliteMetadataStore(__DIR__ . '/flysystem-telegram.sqlite');
 ```
+
+If your application cannot install SQLite support, pass a custom `MetadataStore` or use `MysqlMetadataStore`.
+
+### MySQL / MariaDB
+
+Use MySQL/MariaDB when you do not want the default local SQLite metadata file. This store requires `ext-pdo_mysql`.
+
+```php
+use Aahl\FlysystemTelegram\Config\TelegramAdapterConfig;
+use Aahl\FlysystemTelegram\Metadata\MysqlMetadataStore;
+use Aahl\FlysystemTelegram\TelegramAdapter;
+
+$config = new TelegramAdapterConfig(
+    botToken: 'token',
+    chatId: '-1001234567890',
+);
+
+$metadataStore = new MysqlMetadataStore(
+    dsn: 'mysql:host=127.0.0.1;dbname=app;charset=utf8mb4',
+    username: 'app',
+    password: 'secret',
+    tablePrefix: 'flysystem_',
+);
+
+$adapter = new TelegramAdapter($config, metadataStore: $metadataStore);
+```
+
+You can also pass an existing PDO connection:
+
+```php
+$pdo = new PDO(
+    'mysql:host=127.0.0.1;dbname=app;charset=utf8mb4',
+    'app',
+    'secret',
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+);
+
+$metadataStore = new MysqlMetadataStore(
+    pdo: $pdo,
+    tablePrefix: 'flysystem_',
+);
+```
+
+`MysqlMetadataStore` creates its tables by default. Disable automatic initialization when your framework owns database migrations:
+
+```php
+$metadataStore = new MysqlMetadataStore(
+    pdo: $pdo,
+    tablePrefix: 'flysystem_',
+    autoInitialize: false,
+);
+```
+
+When explicit DSN credentials are omitted, `MysqlMetadataStore` can read them from environment variables:
+
+```bash
+export FLYSYSTEM_TELEGRAM_DB_DSN="mysql:host=127.0.0.1;dbname=app;charset=utf8mb4"
+export FLYSYSTEM_TELEGRAM_DB_USER="app"
+export FLYSYSTEM_TELEGRAM_DB_PASS="secret"
+```
+
+MySQL/MariaDB metadata paths support up to 1023 bytes.
+
+### Custom stores
 
 You may pass any custom `MetadataStore` implementation to `TelegramAdapter`:
 
@@ -184,6 +250,16 @@ composer install
 composer test
 composer analyse
 composer cs
+```
+
+Run MySQL/MariaDB metadata store integration tests by providing a disposable database:
+
+```bash
+export FLYSYSTEM_TELEGRAM_DB_DSN="mysql:host=127.0.0.1;dbname=test;charset=utf8mb4"
+export FLYSYSTEM_TELEGRAM_DB_USER="root"
+export FLYSYSTEM_TELEGRAM_DB_PASS=""
+
+composer test
 ```
 
 Fix code style automatically:
